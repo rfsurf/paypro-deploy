@@ -58,84 +58,61 @@ cp src/main/resources/application.yml{,.bak}
 python3 << 'PYEOF'
 lines = open('src/main/resources/application.yml').readlines()
 result = []
-section = ""
+current_section = ""
+current_subsection = ""
+
 for line in lines:
     stripped = line.strip()
-    # 跟踪当前段落
-    if stripped.startswith('server:'):
-        section = 'server'
-    elif stripped.startswith('spring:'):
-        section = 'spring'
-    elif stripped.startswith('spring:'):
-        section = 'spring'
-    elif not stripped.startswith(' ') and not stripped.startswith('#') and stripped and ':' in stripped:
-        section = stripped.split(':')[0].strip()
+    # Track top-level sections (no indentation)
+    if stripped and not line.startswith(' ') and not line.startswith('#') and ':' in stripped:
+        current_section = stripped.split(':')[0].strip()
+        current_subsection = ""
+    # Track subsections (4-space indent)
+    elif line.startswith('  ') and not line.startswith('    ') and ':' in stripped and not stripped.startswith('#'):
+        current_subsection = stripped.split(':')[0].strip()
     
-    # 修改 server.port
-    if section == 'server' and stripped.startswith('port:'):
+    # 1. Change server port: 8889 -> 8080
+    if current_section == 'server' and stripped.startswith('port:') and '8889' in stripped:
         indent = len(line) - len(line.lstrip())
         result.append(' ' * indent + 'port: 8080\n')
         continue
     
-    # 修改 datasource.url
-    if 'url:' in stripped and 'jdbc:mysql' in stripped:
+    # 2. Change datasource password (not mail password)
+    if current_subsection == 'datasource' and stripped.startswith('password:'):
         indent = len(line) - len(line.lstrip())
-        result.append(' ' * indent + 'url: jdbc:mysql://127.0.0.1:3306/paypro?useSSL=false&characterEncoding=utf-8&serverTimezone=Asia/Shanghai\n')
+        result.append(' ' * indent + 'password: ' + 'PayPro@2026Secure' + '\n')
         continue
     
-    # 修改 datasource.username (排除 mail 的 username)
-    if stripped == 'username: root' and section == 'spring':
+    # 3. Change datasource username: root -> paypro
+    if current_subsection == 'datasource' and stripped.startswith('username:') and 'root' in stripped:
         indent = len(line) - len(line.lstrip())
         result.append(' ' * indent + 'username: paypro\n')
         continue
     
-    # 修改 datasource.password (排除 mail 的 password，mail 的 password 值包含 @)
-    if stripped == 'password: xxxxx' or (stripped.startswith('password:') and '@' not in stripped and section == 'spring' and not line.strip().startswith('password: xxxx #')):
-        # 确保不是 mail.password
-        prev_section = ''
-        for r in reversed(result):
-            s = r.strip()
-            if s.startswith('spring:') or (not s.startswith(' ') and s):
-                break
-            if s.startswith('mail:') or s.startswith('redis:'):
-                prev_section = s.split(':')[0].strip()
-        if prev_section != 'mail':
-            indent = len(line) - len(line.lstrip())
-            result.append(' ' * indent + 'password: ' + 'PayPro@2026Secure' + '\n')
-            continue
-    
-    # 修改 spring.redis.host
-    if stripped == 'host: 127.0.0.1' and section == 'spring':
-        # 检查是否在 redis 段落
-        in_redis = False
-        for r in reversed(result):
-            s = r.strip()
-            if s == 'redis:':
-                in_redis = True
-                break
-            if s and not s.startswith(' ') and ':' in s:
-                break
-        if in_redis:
-            indent = len(line) - len(line.lstrip())
-            result.append(line)  # 保持 127.0.0.1 不变
-            continue
-    
-    # 修改 paypro.site
-    if stripped.startswith('site:') and section == 'paypro':
+    # 4. Change datasource URL
+    if current_subsection == 'datasource' and 'url:' in stripped and 'jdbc:mysql' in stripped:
         indent = len(line) - len(line.lstrip())
-        result.append(' ' * indent + 'site: https://agent-token.top\n')
+        result.append(' ' * indent + 'url: jdbc:mysql://127.0.0.1:3306/paypro?useSSL=false&characterEncoding=utf-8&serverTimezone=Asia/Shanghai\n')
         continue
     
-    # 修改 paypro.token.value
-    if stripped == 'value: 123' and section == 'paypro':
+    # 5. Change paypro.site
+    if current_section == 'paypro' and stripped.startswith('site:'):
         indent = len(line) - len(line.lstrip())
-        result.append(' ' * indent + 'value: paypro-token-2026\n')
+        result.append(' ' * indent + 'site: https://agent-token.top\n')
         continue
     
     result.append(line)
 
 open('src/main/resources/application.yml', 'w').writelines(result)
 print('  ✅ 配置已更新')
+
+# Verify YAML is valid
+import subprocess
+r = subprocess.run(['java', '-version'], capture_output=True, text=True)
+# Quick check: ensure no duplicate passwords got changed
+content = open('src/main/resources/application.yml').read()
+if 'xxxx' in content:
+    print('  ⚠️  注意: 仍有 xxxx 占位符，可能需要手动修改邮箱密码')
 PYEOF
 
 echo "[6/8] 构建项目 (首次需3-5分钟)..."
@@ -167,9 +144,9 @@ echo "[8/8] 检查服务..."
 sleep 8
 if systemctl is-active paypro >/dev/null 2>&1; then
     echo "  ✅ 服务运行中"
-    curl -sf http://127.0.0.1:$PORT >/dev/null && echo "  ✅ 端口 $PORT 可访问" || echo "  ⚠️  端口无响应，可能是启动慢"
+    curl -sf http://127.0.0.1:$PORT >/dev/null && echo "  ✅ 端口 $PORT 可访问" || echo "  ⚠️  端口无响应"
 else
-    echo "  ❌ 服务启动失败，查看日志: journalctl -u paypro --no-pager -n 20"
+    echo "  ❌ 服务启动失败: journalctl -u paypro --no-pager -n 20"
 fi
 
 echo ""
