@@ -6,7 +6,8 @@ U="paypro"
 PW="PayPro@2026Secure"
 PORT=8080
 MYSQL_ROOT_PASS="d886355845ba8327"
-JAR_FILE="$P/paypro-1.0-SNAPSHOT.jar"
+GITEE_USER="luo2422003895"
+GITEE_TOKEN="a57cb5c970603edda9a7f68752885ab2"
 
 echo "========================================="
 echo "  PayPro 开源版 · 轻量部署（免编译）"
@@ -25,7 +26,7 @@ fi
 echo "[2/5] 检查 Redis..."
 REDIS_OK=false
 if command -v redis-cli &>/dev/null; then
-    redis-cli ping &>/dev/null && REDIS_OK=true || { systemctl start redis 2>/dev/null; systemctl enable redis 2>/dev/null; REDIS_OK=true; }
+    redis-cli ping &>/dev/null && REDIS_OK=true || { systemctl start redis 2>/dev/null && systemctl enable redis 2>/dev/null && REDIS_OK=true; }
 elif [ -d /www/server/redis ]; then
     /www/server/redis/bin/redis-cli ping &>/dev/null && REDIS_OK=true || /etc/init.d/redis start 2>/dev/null
     REDIS_OK=true
@@ -53,22 +54,25 @@ echo "  ✅ 数据库已创建"
 echo "[4/5] 下载预编译 JAR..."
 mkdir -p "$P"
 cd "$P"
-if [ -f "$JAR_FILE" ] && [ "$(file "$JAR_FILE" | grep -c 'Java archive')" -gt 0 ]; then
-    echo "  ✅ JAR 已存在且有效，跳过下载"
+JAR="$P/paypro-1.0-SNAPSHOT.jar"
+
+if [ -f "$JAR" ] && [ "$(file "$JAR" 2>/dev/null | grep -c 'Java archive')" -gt 0 ]; then
+    echo "  ✅ JAR 已存在且有效"
 else
-    echo "  → 从 Gitee 下载 JAR (通过 git clone)..."
-    rm -f "$JAR_FILE"
-    git clone --depth 1 https://luo2422003895:a57cb5c970603edda9a7f68752885ab2@gitee.com/luo2422003895/paypro-jar.git /tmp/paypro-jar-tmp 2>/dev/null
+    echo "  → 从 Gitee 下载 JAR..."
+    rm -rf /tmp/paypro-jar-tmp
+    git clone --depth 1 "https://${GITEE_USER}:${GITEE_TOKEN}@gitee.com/${GITEE_USER}/paypro-jar.git" /tmp/paypro-jar-tmp 2>/dev/null
+    
     if [ -f "/tmp/paypro-jar-tmp/paypro-1.0-SNAPSHOT.jar" ]; then
-        mv /tmp/paypro-jar-tmp/paypro-1.0-SNAPSHOT.jar "$JAR_FILE"
+        mv /tmp/paypro-jar-tmp/paypro-1.0-SNAPSHOT.jar "$JAR"
         rm -rf /tmp/paypro-jar-tmp
-        echo "  ✅ 下载完成 ($(du -h $JAR_FILE | cut -f1))"
+        echo "  ✅ 下载完成 ($(du -h $JAR | cut -f1))"
     else
         echo "  → 尝试从 GitHub 下载..."
-        curl -fsSL -o "$JAR_FILE" "https://raw.githubusercontent.com/rfsurf/paypro-deploy/main/releases/paypro-1.0-SNAPSHOT.jar" 2>/dev/null && {
-            echo "  ✅ 从 GitHub 下载完成 ($(du -h $JAR_FILE | cut -f1))"
+        curl -fsSL -o "$JAR" "https://raw.githubusercontent.com/rfsurf/paypro-deploy/main/releases/paypro-1.0-SNAPSHOT.jar" 2>/dev/null && {
+            echo "  ✅ 从 GitHub 下载完成 ($(du -h $JAR | cut -f1))"
         } || {
-            echo "  ❌ 下载失败，请手动上传 JAR 到 $JAR_FILE"
+            echo "  ❌ 下载失败，请手动上传 JAR 到 $JAR"
             exit 1
         }
     fi
@@ -202,7 +206,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$P
-ExecStart=/usr/bin/java -Xms128m -Xmx384m -jar $JAR_FILE --server.port=$PORT --spring.config.location=$P/application.yml
+ExecStart=/usr/bin/java -Xms128m -Xmx384m -jar $JAR --server.port=$PORT --spring.config.location=$P/application.yml
 Restart=on-failure
 RestartSec=10
 
