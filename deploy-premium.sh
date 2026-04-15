@@ -105,6 +105,15 @@ for line in lines:
     
     result.append(line)
 
+# Add GameUrl at the end if not present
+final = ''.join(result)
+if 'GameUrl' not in final:
+    final += '\nGameUrl: https://agent-token.top\n'
+open('src/main/resources/application.yml', 'w').write(final)
+print('  ✅ 配置已更新（含 GameUrl 修复）')
+    
+    result.append(line)
+
 open('src/main/resources/application.yml', 'w').writelines(result)
 print('  ✅ 配置已更新')
 PYEOF
