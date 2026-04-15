@@ -6,6 +6,7 @@ U="paypro"
 PW="PayPro@2026Secure"
 PORT=8080
 MYSQL_ROOT_PASS="d886355845ba8327"
+JAR_FILE="$P/paypro-1.0-SNAPSHOT.jar"
 
 echo "========================================="
 echo "  PayPro 开源版 · 轻量部署（免编译）"
@@ -31,8 +32,7 @@ elif [ -d /www/server/redis ]; then
 fi
 if [ "$REDIS_OK" = false ]; then
     echo "  → 安装 Redis..."
-    yum install -y redis --allowerasing --nobest 2>/dev/null && systemctl start redis && systemctl enable redis
-    REDIS_OK=true
+    yum install -y redis --allowerasing --nobest 2>/dev/null && systemctl start redis && systemctl enable redis && REDIS_OK=true
 fi
 [ "$REDIS_OK" = false ] && { echo "  ❌ 请先在宝塔面板安装 Redis"; exit 1; }
 echo "  ✅ Redis 已就绪"
@@ -53,27 +53,25 @@ echo "  ✅ 数据库已创建"
 echo "[4/5] 下载预编译 JAR..."
 mkdir -p "$P"
 cd "$P"
-JAR="$P/paypro-1.0-SNAPSHOT.jar"
-
-if [ -f "$JAR" ]; then
-    echo "  ✅ JAR 已存在，跳过下载"
+if [ -f "$JAR_FILE" ] && [ "$(file "$JAR_FILE" | grep -c 'Java archive')" -gt 0 ]; then
+    echo "  ✅ JAR 已存在且有效，跳过下载"
 else
-    echo "  → 尝试从 GitHub 下载..."
-    curl -fsSL -o "$JAR" "https://raw.githubusercontent.com/rfsurf/paypro-deploy/main/releases/paypro-1.0-SNAPSHOT.jar" 2>/dev/null && {
-        echo "  ✅ 下载完成 ($(du -h $JAR | cut -f1))"
-    } || {
-        echo "  → GitHub 下载失败，尝试从 Gitee 下载..."
-        curl -fsSL -o "$JAR" "https://gitee.com/luo2422003895/PayPro/raw/master/releases/paypro-1.0-SNAPSHOT.jar" 2>/dev/null && {
-            echo "  ✅ 从 Gitee 下载完成 ($(du -h $JAR | cut -f1))"
+    echo "  → 从 Gitee 下载 JAR (通过 git clone)..."
+    rm -f "$JAR_FILE"
+    git clone --depth 1 https://luo2422003895:a57cb5c970603edda9a7f68752885ab2@gitee.com/luo2422003895/paypro-jar.git /tmp/paypro-jar-tmp 2>/dev/null
+    if [ -f "/tmp/paypro-jar-tmp/paypro-1.0-SNAPSHOT.jar" ]; then
+        mv /tmp/paypro-jar-tmp/paypro-1.0-SNAPSHOT.jar "$JAR_FILE"
+        rm -rf /tmp/paypro-jar-tmp
+        echo "  ✅ 下载完成 ($(du -h $JAR_FILE | cut -f1))"
+    else
+        echo "  → 尝试从 GitHub 下载..."
+        curl -fsSL -o "$JAR_FILE" "https://raw.githubusercontent.com/rfsurf/paypro-deploy/main/releases/paypro-1.0-SNAPSHOT.jar" 2>/dev/null && {
+            echo "  ✅ 从 GitHub 下载完成 ($(du -h $JAR_FILE | cut -f1))"
         } || {
-            echo ""
-            echo "  ❌ 自动下载失败，请手动上传 JAR："
-            echo "  1. 从 https://gitee.com/luo2422003895/paypro-premium 下载预编译版"
-            echo "  2. 上传到 $JAR"
-            echo "  3. 然后重新运行此脚本"
+            echo "  ❌ 下载失败，请手动上传 JAR 到 $JAR_FILE"
             exit 1
         }
-    }
+    fi
 fi
 
 # Create application.yml
@@ -204,7 +202,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$P
-ExecStart=/usr/bin/java -Xms128m -Xmx384m -jar $JAR --server.port=$PORT --spring.config.location=$P/application.yml
+ExecStart=/usr/bin/java -Xms128m -Xmx384m -jar $JAR_FILE --server.port=$PORT --spring.config.location=$P/application.yml
 Restart=on-failure
 RestartSec=10
 
