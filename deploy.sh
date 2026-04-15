@@ -109,10 +109,6 @@ print('  ✅ 配置已更新')
 # Verify YAML is valid
 import subprocess
 r = subprocess.run(['java', '-version'], capture_output=True, text=True)
-# Quick check: ensure no duplicate passwords got changed
-content = open('src/main/resources/application.yml').read()
-if 'xxxx' in content:
-    print('  ⚠️  注意: 仍有 xxxx 占位符，可能需要手动修改邮箱密码')
 PYEOF
 
 echo "[6/8] 构建项目 (首次需3-5分钟)..."
