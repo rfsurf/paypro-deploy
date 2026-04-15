@@ -51,72 +51,140 @@ mkdir -p $P && cd $P
 if [ -d .git ]; then git pull; else git clone https://github.com/codewendao/PayPro.git .; fi
 echo "  ✅ 代码已就绪"
 
-echo "[5/8] 修改配置..."
-cd $P
+echo "[5/8] 重写配置文件..."
 cp src/main/resources/application.yml{,.bak}
 
-python3 << 'PYEOF'
-lines = open('src/main/resources/application.yml').readlines()
-result = []
-current_section = ""
-current_subsection = ""
+cat > src/main/resources/application.yml << 'YAML'
+server:
+  port: 8080
 
-for line in lines:
-    stripped = line.strip()
-    # Track top-level sections (no indentation)
-    if stripped and not line.startswith(' ') and not line.startswith('#') and ':' in stripped:
-        current_section = stripped.split(':')[0].strip()
-        current_subsection = ""
-    # Track subsections (4-space indent)
-    elif line.startswith('  ') and not line.startswith('    ') and ':' in stripped and not stripped.startswith('#'):
-        current_subsection = stripped.split(':')[0].strip()
-    
-    # 1. Change server port: 8889 -> 8080
-    if current_section == 'server' and stripped.startswith('port:') and '8889' in stripped:
-        indent = len(line) - len(line.lstrip())
-        result.append(' ' * indent + 'port: 8080\n')
-        continue
-    
-    # 2. Change datasource password (not mail password)
-    if current_subsection == 'datasource' and stripped.startswith('password:'):
-        indent = len(line) - len(line.lstrip())
-        result.append(' ' * indent + 'password: ' + 'PayPro@2026Secure' + '\n')
-        continue
-    
-    # 3. Change datasource username: root -> paypro
-    if current_subsection == 'datasource' and stripped.startswith('username:') and 'root' in stripped:
-        indent = len(line) - len(line.lstrip())
-        result.append(' ' * indent + 'username: paypro\n')
-        continue
-    
-    # 4. Change datasource URL
-    if current_subsection == 'datasource' and 'url:' in stripped and 'jdbc:mysql' in stripped:
-        indent = len(line) - len(line.lstrip())
-        result.append(' ' * indent + 'url: jdbc:mysql://127.0.0.1:3306/paypro?useSSL=false&characterEncoding=utf-8&serverTimezone=Asia/Shanghai\n')
-        continue
-    
-    # 5. Change paypro.site
-    if current_section == 'paypro' and stripped.startswith('site:'):
-        indent = len(line) - len(line.lstrip())
-        result.append(' ' * indent + 'site: https://agent-token.top\n')
-        continue
-    
-    result.append(line)
+spring:
+  profiles:
+    active: local
+  mail:
+    host: smtp.163.com
+    password: xxxx
+    port: 25
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            trust: "smtp.163.com"
+    username: codewendao@163.com
+  output:
+    ansi:
+      enabled: DETECT
+  thymeleaf:
+    cache: false
+    enabled: true
+    mode: LEGACYHTML5
+  datasource:
+    driverClassName: com.mysql.jdbc.Driver
+    filters: stat,wall,log4j
+    initialSize: 5
+    maxActive: 20
+    maxPoolPreparedStatementPerConnectionSize: 20
+    maxWait: 60000
+    minEvictableIdleTimeMillis: 300000
+    minIdle: 5
+    password: PayPro@2026Secure
+    poolPreparedStatements: true
+    testOnBorrow: false
+    testOnReturn: false
+    testWhileIdle: true
+    timeBetweenEvictionRunsMillis: 60000
+    type: com.alibaba.druid.pool.DruidDataSource
+    url: jdbc:mysql://127.0.0.1:3306/paypro?useSSL=false&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: paypro
+    validationQuery: SELECT 1 FROM DUAL
+  redis:
+    database: 1
+    host: 127.0.0.1
+    password:
+    pool:
+      max-active: -1
+      max-idle: 8
+      max-wait: -1
+      min-idle: 0
+    port: 6379
+    timeout: 10000
 
-open('src/main/resources/application.yml', 'w').writelines(result)
-print('  ✅ 配置已更新')
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath*:mapper/*.xml
+  global-config:
+    db-config:
+      update-strategy: NOT_EMPTY
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
 
-# Verify YAML is valid
-PYEOF
+paypro:
+  alipayCustomQrUrl: https://qr.alipay.com/fkx17492eze99maemka1u81
+  alipayUserId: 2088122989840531
+  indexTitle: PayPro个人收款系统
+  name: codewendao
+  title: PayPro个人收款系统
+  site: https://agent-token.top
+  mobile: xxxxxx
+  email:
+    receiver: 958625993@qq.com
+    sender: codewendao@163.com
+  rateLimit:
+    ipExpire: 2
+  token:
+    value: paypro-token-2026
+    expire: 14
+  qrCodeNum: 2
+  openapi:
+    secret: your_openapi_secret_key_here
+  payMethods:
+    - id: 'alipay'
+      name: '支付宝支付'
+      description: '免输备注，手动收款'
+      icon: '🔵'
+      status: true
+      allow-night: false
+      use-local-qr-code: false
+    - id: 'wechat'
+      name: '微信支付'
+      description: '需备注，自动确认收款'
+      icon: '🟢'
+      status: true
+      allow-night: true
+      use-local-qr-code: true
+    - id: 'wechat_zs'
+      name: '微信赞赏码支付'
+      description: '需备注，自动确认收款'
+      icon: '🟢'
+      status: true
+      allow-night: false
+      use-local-qr-code: true
+    - id: 'alipay_dmf'
+      name: '支付宝当面付'
+      description: '支付宝官方产品，无需营业执照，免备注自动收款'
+      icon: '🔵'
+      status: true
+      allow-night: true
+      use-local-qr-code: false
+YAML
+
+echo "  ✅ 配置文件已重写（不再用Python正则）"
 
 echo "[6/8] 构建项目 (首次需3-5分钟)..."
 cd $P
-mvn clean package -DskipTests
+MAVEN_OPTS="-Xmx256m -Xms128m" mvn clean package -DskipTests
 J=$(find target -name "*.jar" -not -name "*-sources.jar" | head -1)
 echo "  → JAR: $J"
 
 echo "[7/8] 启动服务..."
 systemctl stop paypro 2>/dev/null || true
+rm -f /etc/systemd/system/paypro.service
 tee /etc/systemd/system/paypro.service > /dev/null <<SVC
 [Unit]
 Description=PayPro Payment System
@@ -127,20 +195,19 @@ WorkingDirectory=$P
 ExecStart=/usr/bin/java -jar $J --server.port=$PORT
 Restart=on-failure
 RestartSec=10
-StandardOutput=journal
-StandardError=journal
 [Install]
 WantedBy=multi-user.target
 SVC
 systemctl daemon-reload && systemctl enable paypro && systemctl start paypro
 
 echo "[8/8] 检查服务..."
-sleep 8
+sleep 10
 if systemctl is-active paypro >/dev/null 2>&1; then
     echo "  ✅ 服务运行中"
-    curl -sf http://127.0.0.1:$PORT >/dev/null && echo "  ✅ 端口 $PORT 可访问" || echo "  ⚠️  端口无响应"
+    curl -sf http://127.0.0.1:$PORT >/dev/null && echo "  ✅ 端口 $PORT 可访问" || echo "  ⚠️  端口无响应，等一会儿再试"
 else
-    echo "  ❌ 服务启动失败: journalctl -u paypro --no-pager -n 20"
+    echo "  ❌ 服务启动失败"
+    journalctl -u paypro --no-pager -n 15
 fi
 
 echo ""
