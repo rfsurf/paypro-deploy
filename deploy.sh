@@ -8,31 +8,52 @@ PORT=8080
 echo "=== PayPro 宝塔一键部署 ==="
 
 echo "[1/8] 环境检查..."
-command -v java &>/dev/null || yum install -y java-17-openjdk java-17-openjdk-devel
-command -v mvn &>/dev/null || yum install -y maven
-command -v git &>/dev/null || yum install -y git
+command -v java &>/dev/null || yum install -y --skip-broken java-17-openjdk java-17-openjdk-devel
+command -v mvn &>/dev/null || yum install -y --skip-broken maven
+command -v git &>/dev/null || yum install -y --skip-broken git
 
 # Redis 检测 + 自动安装
+REDIS_OK=false
 if command -v redis-cli &>/dev/null; then
     echo "  ✅ Redis 已安装"
-    redis-cli ping &>/dev/null && echo "  ✅ Redis 运行中" || (systemctl start redis && systemctl enable redis && echo "  ✅ Redis 已启动")
+    redis-cli ping &>/dev/null && echo "  ✅ Redis 运行中" || (systemctl start redis 2>/dev/null && systemctl enable redis 2>/dev/null && echo "  ✅ Redis 已启动")
+    REDIS_OK=true
 elif [ -d /www/server/redis ]; then
     echo "  ✅ 宝塔 Redis 已安装"
-    /www/server/redis/bin/redis-cli ping &>/dev/null && echo "  ✅ Redis 运行中" || (/etc/init.d/redis start 2>/dev/null || systemctl start redis 2>/dev/null && systemctl enable redis 2>/dev/null && echo "  ✅ Redis 已启动")
-else
+    /www/server/redis/bin/redis-cli ping &>/dev/null && echo "  ✅ Redis 运行中" || (/etc/init.d/redis start 2>/dev/null || systemctl start redis 2>/dev/null)
+    systemctl enable redis 2>/dev/null
+    REDIS_OK=true
+fi
+
+if [ "$REDIS_OK" = false ]; then
     echo "  → Redis 未安装，正在自动安装..."
-    yum install -y epel-release 2>/dev/null
-    yum install -y redis 2>/dev/null || {
-        echo "  ⚠️  yum 安装失败，尝试宝塔命令行安装..."
+    # 尝试1: yum 直接装
+    yum install -y redis --allowerasing --nobest 2>/dev/null && {
+        systemctl start redis && systemctl enable redis && echo "  ✅ Redis yum 安装成功"
+        REDIS_OK=true
+    } || {
+        # 尝试2: 宝塔安装脚本
         if [ -f /www/server/panel/install/redis.sh ]; then
-            bash /www/server/panel/install/redis.sh install 2>/dev/null
-        else
-            echo "  ❌ 自动安装失败，请在宝塔面板 → 软件商店 安装 Redis"
-            exit 1
+            echo "  → 使用宝塔脚本安装 Redis..."
+            bash /www/server/panel/install/redis.sh install 2>/dev/null && {
+                /etc/init.d/redis start 2>/dev/null || systemctl start redis 2>/dev/null
+                echo "  ✅ 宝塔 Redis 安装成功"
+                REDIS_OK=true
+            }
+        fi
+    } || {
+        # 尝试3: 宝塔 bt 命令
+        if command -v bt &>/dev/null; then
+            echo "  → 尝试 bt 命令安装..."
+            bt 2>/dev/null
         fi
     }
-    systemctl start redis && systemctl enable redis
-    echo "  ✅ Redis 已安装并启动"
+    if [ "$REDIS_OK" = false ]; then
+        echo "  ❌ Redis 自动安装失败"
+        echo "  请在宝塔面板操作：软件商店 → 搜索 Redis → 安装"
+        echo "  安装完成后重新运行此脚本"
+        exit 1
+    fi
 fi
 
 [ -d /www/server/mysql ] && export PATH="/www/server/mysql/bin:$PATH"
