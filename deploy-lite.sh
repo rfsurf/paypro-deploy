@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 P="/www/wwwroot/paypro"
-JAR_URL="https://gitee.com/luo2422003895/PayPro/releases/download/v1.0-bt/paypro-1.0-SNAPSHOT.jar"
+JAR_URL="https://raw.githubusercontent.com/rfsurf/paypro-deploy/main/releases/paypro-1.0-SNAPSHOT.jar"
 JAR="$P/paypro-1.0-SNAPSHOT.jar"
 DB="paypro"
 U="paypro"
