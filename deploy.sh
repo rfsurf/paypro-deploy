@@ -48,7 +48,7 @@ mysql -u root -p"${MYSQL_PASS}" -e "CREATE DATABASE IF NOT EXISTS $DB DEFAULT CH
 
 echo "[4/8] 获取代码..."
 mkdir -p $P && cd $P
-if [ -d .git ]; then git pull; else git clone --depth 1 -b fix-bt-deploy https://github.com/rfsurf/PayPro.git .; fi
+if [ -d .git ]; then git pull; else git clone --depth 1 -b fix-bt-deploy https://gitee.com/luo2422003895/PayPro.git .; fi
 echo "  ✅ 代码已就绪"
 
 echo "[5/8] 重写配置文件..."
