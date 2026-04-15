@@ -107,8 +107,6 @@ open('src/main/resources/application.yml', 'w').writelines(result)
 print('  ✅ 配置已更新')
 
 # Verify YAML is valid
-import subprocess
-r = subprocess.run(['java', '-version'], capture_output=True, text=True)
 PYEOF
 
 echo "[6/8] 构建项目 (首次需3-5分钟)..."
