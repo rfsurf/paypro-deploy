@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 P="/www/wwwroot/paypro"
-JAR_URL="https://raw.githubusercontent.com/rfsurf/paypro-deploy/main/releases/paypro-1.0-SNAPSHOT.jar"
-JAR="$P/paypro-1.0-SNAPSHOT.jar"
 DB="paypro"
 U="paypro"
 PW="PayPro@2026Secure"
@@ -55,11 +53,27 @@ echo "  ✅ 数据库已创建"
 echo "[4/5] 下载预编译 JAR..."
 mkdir -p "$P"
 cd "$P"
-if [ -f "paypro-1.0-SNAPSHOT.jar" ]; then
+JAR="$P/paypro-1.0-SNAPSHOT.jar"
+
+if [ -f "$JAR" ]; then
     echo "  ✅ JAR 已存在，跳过下载"
 else
-    curl -fsSL -o "$JAR" "$JAR_URL"
-    echo "  ✅ 下载完成 ($(du -h $JAR | cut -f1))"
+    echo "  → 尝试从 GitHub 下载..."
+    curl -fsSL -o "$JAR" "https://raw.githubusercontent.com/rfsurf/paypro-deploy/main/releases/paypro-1.0-SNAPSHOT.jar" 2>/dev/null && {
+        echo "  ✅ 下载完成 ($(du -h $JAR | cut -f1))"
+    } || {
+        echo "  → GitHub 下载失败，尝试从 Gitee 下载..."
+        curl -fsSL -o "$JAR" "https://gitee.com/luo2422003895/PayPro/raw/master/releases/paypro-1.0-SNAPSHOT.jar" 2>/dev/null && {
+            echo "  ✅ 从 Gitee 下载完成 ($(du -h $JAR | cut -f1))"
+        } || {
+            echo ""
+            echo "  ❌ 自动下载失败，请手动上传 JAR："
+            echo "  1. 从 https://gitee.com/luo2422003895/paypro-premium 下载预编译版"
+            echo "  2. 上传到 $JAR"
+            echo "  3. 然后重新运行此脚本"
+            exit 1
+        }
+    }
 fi
 
 # Create application.yml
